@@ -192,7 +192,7 @@ train_dat %>% filter(!is.na(bet_result_on_favorite)) %>%
     ))) %>%
   group_by(team_underdog_id) %>%
   summarise(mean_result_on_favorite = mean(bet_result_on_favorite)) %>% 
-  arrange(mean_result_on_favorite) %>% print(n = 50)
+  arrange(mean_result_on_favorite) %>% print(n = 50) %>% kable()
 ```
 
 The results at the top here are a bit muddled. `PICK` merely is where the line has the teams as equally likely to win, so we will disregard this. the Los Angeles Raiders existed for about 15 seasons, so this is a good amount of data, but since they do not exist by that name anymore, and their Oakland variation is much further down, I cannot crown them here. Nor can I crown the LA Chargers, having only three seasons of data by that name. So, the crown of the best underdog to bet goes to the Pittsburgh Steelers! The underdog you should not want to bet appears to be a common trend amongst St. Louis teams, however, and since the Arizona and Phoenix variations of the cardinals are also down there, as well as the Los Angeles variation of the Rams, this is a harder decision. But, I have to give it to the Rams, as a historical franchise, as they have by far the worst overall when they were in St. Louis, and their Los Angeles variant is much worst than the Arizona variant of the cardinals. Close call to the cardinals, as they almost got the worst in both categories!
