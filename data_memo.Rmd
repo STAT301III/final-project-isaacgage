@@ -1,0 +1,28 @@
+---
+title: "Data Memo"
+author: "Isaac Gage"
+date: "4/24/2020"
+output: html_document
+---
+
+## Data Source
+
+The main data I plan on investigating on is an NFL betting dataset from https://www.kaggle.com/tobycrabtree/nfl-scores-and-betting-data/data#spreadspoke_scores.csv. I would like to be able to use it to predict what bets to make on certain games. The dataset contains data on the favorites and the spread, as well as the over under for each game. It also contains the score of the game and basic information such as stadium, home team, and some weather information. I would like to supplement this with some team data from Pro Football Reference to have more numerical data by which to make predictions. Having data such as a team's cumulative season stats before the game would be very useful, but may be difficult to obtain. That type of data would be much more useful to construct a model by which to actually make future predictions, but if it is impossible to find, then I would have to settle for total season data, or previous season data. Some sort of data like this is absolutely necessary to obtain, otherwise this model will have no predictive power or insight whatsoever. I would have to join it with my betting dataset, likely using team and year as a join key. It could also be useful to find data on moneylines for games, as another form of betting to investigate. 
+
+## Why This Dataset
+
+I have always been a huge fan of the NFL, but I have never known that much about betting. Sports betting is bigger than ever before, and finding any way to gain an edge on betting odds could allow me to make a good amount of money. This could potentially be a very useful project, but the data itself is also very interesting to me! Both of my prior projects in 301-1 and 301-2 used NFL data, and I will be completing that pattern this quarter.
+
+#### Questions of Interest
+
+- What predictors are most useful for predicting what the over/under of a game should be?
+- What predictors are most useful for predicting favorite and spread?
+- How far from the actual spread or over/under should a prediction be to be a useful bet?
+
+I believe my data is well suited to answer these questions, especially if I can obtain the team data from Pro Football Focus that I am looking for. The last question may be the most difficult to answer, as it is fairly subjective, but I believe it could be answered by investigating distance from the actual betting lines and that distribution, and determining how many productive bets exist or if riskier bets (predicted line closer to actual line) should be bet to have any chance of making money.
+
+These questions are a combination of regression and classification. For predicting the over/under, this is a simple regression problem. For predicting the favorite and spread, this is two separate (but related) questions, where predicting the favorite is classification, and the spread is regression. Of course, it may be possible to just combine them into one question where it is a regression that predicts the difference in say, the home team's score minus the away team's. This would provide enough information in the results to have both the favorite and spread, but may require a little more work after the model is done in order to make the results interpretable.
+
+## Potential Data Issues
+
+A lot of the meaningful analysis in this project relies on my ability to obtain seasonal data, or even previous game data, on the teams so that there are actual trends and numbers to use in predicting this, instead of simply using home team and weather. I am looking into APIs and web scraping to obtain this. If you have any tips on how to go about it, they would be much appreciated! Without having that data, it is hard to say what cleaning and wrangling will be necessary. There will obviously have to be some sort of join that happens on year and team, and working with teams that relocated could be tricky. There are NAs in the spreads dataset I already have, mostly in older years or in the weather, but I do not foresee this being much of a problem, as the dataset is large enough where I can ignore old data (it seems pretty thorough starting in the late 1970s), and weather may not be that important anyway.

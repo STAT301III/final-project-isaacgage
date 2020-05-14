@@ -1,0 +1,198 @@
+---
+title: "EDA Report"
+author: "Isaac Gage"
+date: "5/14/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+```
+
+```{r}
+# Loading Packages
+
+library(tidyverse)
+library(skimr)
+library(knitr)
+library(corrplot)
+
+# Loading Data
+
+train_dat <- read_csv(file = "data/processed/training_data.csv")
+```
+
+
+## Data Overview
+
+All of the data I need for this project came from https://www.kaggle.com/tobycrabtree/nfl-scores-and-betting-data/data#spreadspoke_scores.csv. I said in my data memo that I needed to find a dataset of NFL records so that each game I could have the teams' prior record data, because columns for these predictors were not in my original dataset. However, all I needed was already in there, I just had to unlock it! Since I knew the winner of every game in the dataset, and all games from 1966-2019 were included, I could wrangle the data to construct these columns myself, which I did. In my final, processed dataset, there were 12678 observations and 42 columns. Many of those columns are not useful predictors as they contain the results of the game and were useful for data wrangling.
+
+```{r}
+skim_without_charts(train_dat) %>% kable()
+```
+
+Lets look at the variables with the most missingness.
+
+```{r}
+ggplot(data = (train_dat %>% filter(is.na(team_favorite_id) == TRUE)), aes(schedule_season)) +
+  geom_bar(fill = "blue") +
+  labs(
+    x = "Season",
+    y = "Number of NAs",
+    title = "Missingness in Favored Team"
+  ) +
+  theme_minimal()
+
+humid_plot <- ggplot(data = (train_dat %>% filter(is.na(weather_humidity) == TRUE)), aes(schedule_season)) +
+  geom_bar(fill = "blue") +
+  labs(
+    x = "Season",
+    y = "Number of NAs",
+    title = "Missingness in Weather Humidity"
+  ) +
+  theme_minimal()
+    
+temp_plot <- ggplot(data = (train_dat %>% filter(is.na(weather_temperature) == TRUE)), aes(schedule_season)) +
+  geom_bar(fill = "blue") +
+  labs(
+    x = "Season",
+    y = "Number of NAs",
+    title = "Missingness in Weather Temperature"
+  ) +
+  theme_minimal()     
+
+detail_plot <- ggplot(data = (train_dat %>% filter(is.na(weather_detail) == TRUE)), aes(schedule_season)) +
+  geom_bar(fill = "blue") +
+  labs(
+    x = "Season",
+    y = "Number of NAs",
+    title = "Missingness in Weather Detail"
+  ) +
+  theme_minimal() 
+
+wind_plot <- ggplot(data = (train_dat %>% filter(is.na(weather_wind_mph) == TRUE)), aes(schedule_season)) +
+  geom_bar(fill = "blue") +
+  labs(
+    x = "Season",
+    y = "Number of NAs",
+    title = "Missingness in Weather Wind MPH"
+  ) +
+  theme_minimal()     
+
+cowplot::plot_grid(humid_plot, detail_plot, temp_plot, wind_plot, ncol = 2)
+```
+
+It appears that missingness in temperature and wind speed go hand in hand, you cannot have one without the other. `weather_detail` is mostly missing throughout every season, so it is probably not worth using as a predictor. Thankfully, `team_favorite_id` seems to stop being missing after the 1978 season, which is very convenient. I do find it very strange that there were a few years of no missing temperatures or wind speeds, but then for the most recent season, they all seem to be missing. 
+
+## Essential Findings
+
+```{r}
+train_wo_result <- train_dat %>%
+  select(-c(score_home, score_away, winning_team, losing_team, home_team_year, away_team_year,
+            home_win, home_loss, away_win, away_loss, post_home_team_wins, post_home_team_losses,
+            post_away_team_losses, post_away_team_wins, pre_away_team_losses, pre_away_team_wins,
+            pre_home_team_losses, pre_home_team_losses, spread_result, score_sum))
+
+train_wo_result %>% select_if(is.numeric) %>%
+  filter_all(any_vars(!is.na(.))) %>%
+  cor(use = "pairwise.complete.obs") %>%
+  corrplot()
+```
+
+It appears that literally every single predictor has practically no correlation with our response variables, `favorite_hit`. `underdog_hit`, and `push`, and the overall big kahuna response variable, `bet_result_on_favorite`, which is constructed to encapsulate the other three. If the favorite hits, it will show a 1, if the underdog hits, it will show a 0, and if the bet pushes, then it shows a 0 (this way pushes aren't counted negatively in any averaging). Let's investigate this main response variable and see what we can learn.
+
+```{r}
+train_dat %>% filter(!is.na(favorite_hit)) %>% summarise(fav_bet_mean_result = mean(bet_result_on_favorite)) %>% kable()
+```
+
+Here, we can see that across all data, betting the favorite on the spread seems to overall be the wrong choice. It appears that someone betting the favorite will lose their bet $4.01\%$ of the time more than would be expected. A mean of zero here would imply that on average, underdogs and favorites win the same amount of the time. Apparently, this is not true, which is good for us!
+
+```{r}
+train_dat %>% filter(!is.na(bet_result_on_favorite)) %>% group_by(schedule_season) %>% 
+  summarise(mean = mean(bet_result_on_favorite)) %>%
+  ggplot(aes(schedule_season, mean)) +
+  geom_point() +
+  theme_minimal()
+```
+
+Here is a graph showing how this result, but by year to investigate any trends. It seems as if most years hover right around this overall average anyways (early years only have one bettable game, the Super Bowl, so have all-or-nothing proportions).
+
+```{r}
+train_dat %>% filter(!is.na(favorite_hit)) %>% group_by(home_favored) %>% summarise(fav_bet_mean_result = mean(bet_result_on_favorite)) %>% kable()
+```
+
+Here, we can see that even while, presumably, home field advantage is taken into account by betting odds makers, they still undervalue it. When the home team is favored, they tend to cover the spread $5.2\%$ more of the time than favored away teams, suggesting favored home teams are safer bets, and that underdogs are better bets when they are at home, which makes sense. However, it is good news for us that these results indicate that betting odds-makers are not accurately assessing the value of home field advantage. While this result makes sense intuitively, we would actually expect home field advantage to already properly be taken into account.
+
+```{r}
+train_dat %>% filter(!is.na(favorite_hit)) %>% group_by(schedule_playoff) %>%
+  summarise(fav_bet_mean_result = mean(bet_result_on_favorite)) %>% kable()
+```
+
+Here, we can see that in the playoffs, favorites cover the spread more than before. A good amount more, actually. $2.74\%$ more than in the regular season. So, betting the favorites during the playoffs is a better idea than in the regular season, although this mean result is still negative, implying someone should still avoid it. Perhaps in the playoffs, it is best to avoid betting the underdogs as much as in the regular season, where it is much more advantageous.
+
+```{r}
+train_dat %>% filter(!is.na(bet_result_on_favorite)) %>% group_by(schedule_week) %>%
+  summarise(fav_bet_mean_result = mean(bet_result_on_favorite)) %>%
+  ggplot(aes(fav_bet_mean_result, 
+             factor(schedule_week, levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
+                                              "14", "15", "16", "17", "18", "Wildcard", "Division", "Conference", "Superbowl")))) +
+  geom_col(aes(fill = fav_bet_mean_result), show.legend = FALSE) +
+  labs(
+    x = "Bet Result Average on Favorite",
+    y = "Week of Season"
+  ) +
+  theme_minimal()
+```
+
+Here, we can see some per-week averages. Week 18 should be disregarded, it it was a one time week of 10 games played in the 1993 season as an experiment. It appears that odds makers get slightly better at levelling the playing field in favor of the favorites as the season progresses, and they do so too much in the Super Bowl and conference championship games. In the early stages of the regular season, and especially during the wild card round of the playoffs, it seems that it is much better to bet on underdogs. I wonder why week 6 is so lucrative for them!
+
+## Secondary Findings
+
+```{r}
+train_dat %>% filter(!is.na(over_under_line)) %>% 
+  ggplot(aes(over_under_line, score_sum)) +
+  geom_point(alpha = 0.2) +
+  geom_abline(slope = 1, intercept = 0, color = "red") +
+  annotate(geom = "text", label = "y = x", x = 65, y = 70, color = "red") +
+  labs(
+    x = "Over Under for Game",
+    y = "Total Points Scored in Game"
+  ) +
+  theme_minimal()
+```
+
+This is a graph of all games with an over-under reported, and the actual total score from that game. A line is provided for reference of when these two would be equal. I was curious if more often than not, the over-under hits the over or the under.
+
+```{r}
+train_dat %>% filter(!is.na(over_under_line)) %>%
+  mutate(result = if_else(score_sum > over_under_line, "Over Hit",
+                          if_else(score_sum < over_under_line, "Under Hit", "Push"))) %>%
+  group_by(result) %>%
+  count() %>%
+  mutate(prop = n / 8617) %>% kable()
+```
+
+It appears that betting the under is about $1.2\%$ better than the over, on average. I tried running a few regressions to see if I could find any patterns in the over-under that might be useful, but the $R^2$ values from all of those models was much too low.
+
+```{r}
+train_dat %>% filter(!is.na(bet_result_on_favorite)) %>%
+  group_by(team_favorite_id) %>%
+  summarise(mean_result_on_favorite = mean(bet_result_on_favorite)) %>% 
+  arrange(desc(mean_result_on_favorite)) %>% kable()
+```
+
+Here, I was curious which teams perform the best as favorites. This shows that the best team, historically, to bet on as a favorite was the Phoenix Cardinals. In that name they only played for 6 seasons, however, which explains why their result is so much better than the other teams. So, in this category, I will crown my home town Green Bay Packers the best team to bet on as a favorite. The worst team, historically, is the Baltimore Colts, but again, we only have a few years of data for them. So, taking the unfortunate cake as the worst is the Arizona Cardinals. Next, I was curious about udnerdogs.
+
+```{r}
+train_dat %>% filter(!is.na(bet_result_on_favorite)) %>%
+  mutate(team_underdog_id = if_else(team_favorite_id == team_home, team_away, if_else(
+      team_favorite_id == team_away, team_home, "PICK"
+    ))) %>%
+  group_by(team_underdog_id) %>%
+  summarise(mean_result_on_favorite = mean(bet_result_on_favorite)) %>% 
+  arrange(mean_result_on_favorite) %>% print(n = 50)
+```
+
+The results at the top here are a bit muddled. `PICK` merely is where the line has the teams as equally likely to win, so we will disregard this. the Los Angeles Raiders existed for about 15 seasons, so this is a good amount of data, but since they do not exist by that name anymore, and their Oakland variation is much further down, I cannot crown them here. Nor can I crown the LA Chargers, having only three seasons of data by that name. So, the crown of the best underdog to bet goes to the Pittsburgh Steelers! The underdog you should not want to bet appears to be a common trend amongst St. Louis teams, however, and since the Arizona and Phoenix variations of the cardinals are also down there, as well as the Los Angeles variation of the Rams, this is a harder decision. But, I have to give it to the Rams, as a historical franchise, as they have by far the worst overall when they were in St. Louis, and their Los Angeles variant is much worst than the Arizona variant of the cardinals. Close call to the cardinals, as they almost got the worst in both categories!
